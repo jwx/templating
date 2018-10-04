@@ -2486,6 +2486,20 @@ export class View {
       }
     }
   }
+
+  /**
+  * Hides or shows view
+  * @param hide If the view should be hidden
+  */
+  hide(hide_: boolean): void {
+    let current = this.firstChild;
+    while (current) {
+      if (current.style) {
+        current.style.display = hide_ ? 'none' : '';
+      }
+      current = current.nextSibling;
+    }
+  }
 }
 
 /**
@@ -2609,12 +2623,12 @@ export class ViewSlot {
 
     if (animatableElement !== null) {
       switch (direction) {
-      case 'enter':
-        return this.animator.enter(animatableElement);
-      case 'leave':
-        return this.animator.leave(animatableElement);
-      default:
-        throw new Error('Invalid animation direction: ' + direction);
+        case 'enter':
+          return this.animator.enter(animatableElement);
+        case 'leave':
+          return this.animator.leave(animatableElement);
+        default:
+          throw new Error('Invalid animation direction: ' + direction);
       }
     }
   }
@@ -2908,6 +2922,40 @@ export class ViewSlot {
     }
 
     return removeAction();
+  }
+
+  /**
+  * Hides or shows all views in the slot.
+  * @param hide If the views should be hidden.
+  * @param skipAnimation Should the removal animation be skipped?
+  * @return May return a promise if the view removals triggered an animation.
+  */
+  hide(hide_: boolean, skipAnimation?: boolean): void | Promise<any> {
+    let children = this.children;
+    let rmPromises = [];
+
+    children.forEach(child => {
+      if (skipAnimation) {
+        child.hide(hide_);
+      }
+
+      let animation = this.animateView(child, (hide_ ? 'leave' : 'enter'));
+      if (animation) {
+        if (hide_) {
+          rmPromises.push(animation.then(() => child.hide(hide_)));
+        }
+        else {
+          child.hide(hide_);
+          rmPromises.push(animation);
+        }
+      } else {
+        child.hide(hide_);
+      }
+    });
+
+    // if (rmPromises.length > 0) {
+      return Promise.all(rmPromises);
+    // }
   }
 
   /**
@@ -5890,6 +5938,44 @@ export const SwapStrategies = {
   // animate the next view in after the current view has been removed
   after(viewSlot, previous, callback) {
     return Promise.resolve(viewSlot.removeAll(true)).then(callback);
+  }
+};
+
+export const SwapStrategiesStateful = {
+  // animate the next viewports in before hiding the current viewports;
+  before(viewPort, previous, callback) {
+    return viewPort.hide(false).then(() => callback()).then(() => Promise.all(previous.map((prevViewPort) => {
+      if (!prevViewPort.stateful) {
+        return prevViewPort.viewSlot.removeAll(true);
+      }
+      else {
+        return prevViewPort.hide(true);
+      }
+    })));
+  },
+
+  // animate the next viewport at the same time the current viewports are removed
+  with(viewPort, previous, callback) {
+    return Promise.all(previous.map((prevViewPort) => {
+      if (!prevViewPort.stateful) {
+        return prevViewPort.viewSlot.removeAll(true);
+      }
+      else {
+        return prevViewPort.hide(true);
+      }
+    }), viewPort.hide(false).then(() => callback()));
+  },
+
+  // animate the next viewport in after the current viewports have been removed
+  after(viewPort, previous, callback) {
+    return Promise.all(previous.map((prevViewPort) => {
+      if (!prevViewPort.stateful) {
+        return prevViewPort.viewSlot.removeAll(true);
+      }
+      else {
+        return prevViewPort.hide(true);
+      }
+    })).then(() => viewPort.hide(false).then(() => callback()));
   }
 };
 

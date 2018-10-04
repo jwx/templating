@@ -1634,6 +1634,16 @@ export let View = class View {
       }
     }
   }
+
+  hide(hide_) {
+    let current = this.firstChild;
+    while (current) {
+      if (current.style) {
+        current.style.display = hide_ ? 'none' : '';
+      }
+      current = current.nextSibling;
+    }
+  }
 };
 
 function getAnimatableElement(view) {
@@ -1918,6 +1928,31 @@ export let ViewSlot = class ViewSlot {
     }
 
     return removeAction();
+  }
+
+  hide(hide_, skipAnimation) {
+    let children = this.children;
+    let rmPromises = [];
+
+    children.forEach(child => {
+      if (skipAnimation) {
+        child.hide(hide_);
+      }
+
+      let animation = this.animateView(child, hide_ ? 'leave' : 'enter');
+      if (animation) {
+        if (hide_) {
+          rmPromises.push(animation.then(() => child.hide(hide_)));
+        } else {
+          child.hide(hide_);
+          rmPromises.push(animation);
+        }
+      } else {
+        child.hide(hide_);
+      }
+    });
+
+    return Promise.all(rmPromises);
   }
 
   attached() {
@@ -4437,6 +4472,38 @@ export const SwapStrategies = {
 
   after(viewSlot, previous, callback) {
     return Promise.resolve(viewSlot.removeAll(true)).then(callback);
+  }
+};
+
+export const SwapStrategiesStateful = {
+  before(viewPort, previous, callback) {
+    return viewPort.hide(false).then(() => callback()).then(() => Promise.all(previous.map(prevViewPort => {
+      if (!prevViewPort.stateful) {
+        return prevViewPort.viewSlot.removeAll(true);
+      } else {
+        return prevViewPort.hide(true);
+      }
+    })));
+  },
+
+  with(viewPort, previous, callback) {
+    return Promise.all(previous.map(prevViewPort => {
+      if (!prevViewPort.stateful) {
+        return prevViewPort.viewSlot.removeAll(true);
+      } else {
+        return prevViewPort.hide(true);
+      }
+    }), viewPort.hide(false).then(() => callback()));
+  },
+
+  after(viewPort, previous, callback) {
+    return Promise.all(previous.map(prevViewPort => {
+      if (!prevViewPort.stateful) {
+        return prevViewPort.viewSlot.removeAll(true);
+      } else {
+        return prevViewPort.hide(true);
+      }
+    })).then(() => viewPort.hide(false).then(() => callback()));
   }
 };
 

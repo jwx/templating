@@ -1310,6 +1310,12 @@ export declare class View {
     * Triggers the detach for the view and its children.
     */
   detached(): void;
+  
+  /**
+    * Hides or shows view
+    * @param hide If the view should be hidden
+    */
+  hide(hide_: boolean): void;
 }
 
 /**
@@ -1408,6 +1414,14 @@ export declare class ViewSlot {
     * @return May return a promise if the view removals triggered an animation.
     */
   removeAll(returnToCache?: boolean, skipAnimation?: boolean): void | Promise<any>;
+  
+  /**
+    * Hides or shows all views in the slot.
+    * @param hide If the views should be hidden.
+    * @param skipAnimation Should the removal animation be skipped?
+    * @return May return a promise if the view removals triggered an animation.
+    */
+  hide(hide_: boolean, skipAnimation?: boolean): void | Promise<any>;
   
   /**
     * Triggers the attach for the slot and its children.
@@ -1926,6 +1940,7 @@ export declare function children(selectorOrConfig: string | Object): any;
 */
 export declare function child(selectorOrConfig: string | Object): any;
 export declare const SwapStrategies: any;
+export declare const SwapStrategiesStateful: any;
 
 /**
 * Used to dynamically compose components.
